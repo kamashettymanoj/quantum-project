@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Quantum Path Planning – Delivery Vehicles</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <style>
+    :root {
+      --accent1: #18ffd6;
+      --accent2: #7b61ff;
+      --bg: #030518;
+      --fg: #e8f1ff;
+      --muted: #9fb2d8;
+      --card: rgba(255,255,255,0.03);
+    }
+    html, body {
+      margin: 0;
+      height: 100%;
+      font-family: Inter, Segoe UI, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+    }
+    .app {
+      display: grid;
+      grid-template-columns: 360px 1fr 380px;
+      grid-template-rows: 68px 1fr 50px;
+      grid-template-areas:
+        "header header header"
+        "sidebar map promo"
+        "footer footer footer";
+      height: 100vh;
+    }
+    header {
+      grid-area: header;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      background: linear-gradient(90deg, rgba(24,255,214,0.04), rgba(123,97,255,0.04));
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .brand { display: flex; gap: 12px; align-items: center; }
+    .badge-quantum {
+      background: linear-gradient(90deg, var(--accent1), var(--accent2));
+      color: #051820;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+    /* Sidebar */
+    .sidebar {
+      grid-area: sidebar;
+      padding: 16px;
+      border-right: 1px solid rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.01);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .form {
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.02);
+      color: var(--fg);
+      width: 100%;
+    }
+    .btn {
+      cursor: pointer;
+      border-radius: 999px;
+      padding: 10px;
+      font-weight: 700;
+      border: none;
+      transition: opacity 0.3s;
+    }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--accent1);
+      color: var(--accent1);
+    }
+    .btn-quantum {
+      background: linear-gradient(90deg, var(--accent1), var(--accent2));
+      color: #051820;
+    }
+    .btn:hover { opacity: 0.85; }
+    .metrics {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .metric {
+      background: var(--card);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+    .outputBox {
+      margin-top: 8px;
+      background: var(--card);
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+    }
+    /* Map */
+    #map {
+      grid-area: map;
+      height: 100%;
+      width: 100%;
+    }
+    /* Promo Panel */
+    .promo {
+      grid-area: promo;
+      background: linear-gradient(180deg, rgba(123,97,255,0.07), rgba(24,255,214,0.04));
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .promo-card {
+      background: rgba(0,0,0,0.3);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+      width: 100%;
+      text-align: center;
+      color: var(--fg);
+    }
+    .promo-card img, .promo-card video {
+      width: 100%;
+      display: block;
+    }
+    .promo-card h2 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin: 12px 0;
+    }
+    .promo-card p {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin: 0 12px 12px;
+    }
+    .promo-card a {
+      display: inline-block;
+      margin-bottom: 16px;
+      color: var(--accent1);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    /* Footer */
+    footer {
+      grid-area: footer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 20px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header>
+      <div class="brand">
+        <div class="badge-quantum"><i class="bi bi-cpu-fill"></i> QUANTUM</div>
+        <div>
+          <div style="font-weight:800;font-size:1.05rem">Quantum Path Planning</div>
+          <div style="font-size:0.85rem;color:var(--muted)">Fleet optimization demo — educational</div>
+        </div>
+      </div>
+      <div style="color:var(--muted)"><i class="bi bi-geo-alt"></i>&nbsp;OpenStreetMap &nbsp;&nbsp; <i class="bi bi-info-circle"></i>&nbsp;Quantum ≈ -10%</div>
+    </header>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <input type="text" id="src" class="form" placeholder="Source address e.g. Adoni"/>
+      <input type="text" id="dest" class="form" placeholder="Destination address e.g. Chennai"/>
+      <button onclick="calculateRoute('classical')" class="btn btn-outline">Classical Route</button>
+      <button onclick="calculateRoute('quantum')" class="btn btn-quantum">Quantum Route</button>
+
+      <div class="metrics">
+        <div id="mDist" class="metric">Distance: –</div>
+        <div id="mTime" class="metric">Time: –</div>
+        <div id="mCost" class="metric">Cost: –</div>
+        <div id="mNote" class="metric">Note: –</div>
+      </div>
+      <div id="outputBox" class="outputBox">Enter full address — or click a button.</div>
+    </div>
+
+    <!-- Map -->
+    <div id="map"></div>
+
+    <!-- Promo -->
+    <div class="promo">
+      <div class="promo-card">
+        <video autoplay muted loop playsinline>
+          <source src="quantumvideo.mp4" type="video/mp4">
+        </video>
+        <h2>The Future with all new <span style="color:var(--accent1)">Quantum computing</span></h2>
+        <p>Explore quantum-inspired route optimization and compare classical vs quantum heuristic paths for delivery fleets.</p>
+        <a href="#">Explore more →</a>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      <div>© <span id="yr"></span> Quantum Path Planning Demo</div>
+      <div>Educational demo — not for navigation</div>
+    </footer>
+  </div>
+
+  <!-- Leaflet scripts -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+
+  <script>
+    const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImNkMWNiZTQyMWQ2MDRjNDViOGZhNjcyYWUyMjgyM2M2IiwiaCI6Im11cm11cjY0In0=";
+    const map = L.map('map').setView([15.63, 78.11], 7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    let routingControl = null;
+    async function geocodeAddress(address) {
+      const resp = await fetch("https://api.openrouteservice.org/geocode/search?api_key=" + ORS_API_KEY + "&text=" + encodeURIComponent(address));
+      const data = await resp.json();
+      if (data.features && data.features.length > 0) {
+        const [lng, lat] = data.features[0].geometry.coordinates;
+        return [lat, lng];
+      } else throw new Error("Address not found: " + address);
+    }
+
+    async function calculateRoute(type) {
+      const srcAddress = document.getElementById("src").value;
+      const destAddress = document.getElementById("dest").value;
+      try {
+        const src = await geocodeAddress(srcAddress);
+        const dest = await geocodeAddress(destAddress);
+        const resp = await fetch("https://api.openrouteservice.org/v2/directions/driving-car/geojson", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": ORS_API_KEY },
+          body: JSON.stringify({ coordinates: [[src[1], src[0]], [dest[1], dest[0]]] })
+        });
+        const geojson = await resp.json();
+        if (geojson.features && geojson.features.length > 0) {
+          const coords = geojson.features[0].geometry.coordinates.map(pt => L.latLng(pt[1], pt[0]));
+          if (routingControl) map.removeControl(routingControl);
+          routingControl = L.Routing.control({
+            waypoints: [coords[0], coords[coords.length - 1]],
+            createMarker: function(i, wp) {
+              return L.marker(wp.latLng).bindPopup(i === 0 ? "Start" : "Destination");
+            },
+            lineOptions: { styles: [{ color: type === "quantum" ? "green" : "blue", opacity: 0.8, weight: 6 }] },
+            routeWhileDragging: false, addWaypoints: false, draggableWaypoints: false, fitSelectedRoutes: true
+          }).addTo(map);
+          L.polyline(coords, { color: type === "quantum" ? "green" : "blue", weight: 6 }).addTo(map);
+
+          const summary = geojson.features[0].properties.summary;
+          if (summary) {
+            const distanceKm = (summary.distance / 1000).toFixed(1);
+            const timeHr = (summary.duration / 3600).toFixed(1);
+            const cost = (summary.distance / 1000 * 3).toFixed(0);
+            const midPoint = coords[Math.floor(coords.length / 2)];
+            L.marker(midPoint, { opacity: 0.01 })
+              .bindTooltip(`${distanceKm} km, ${timeHr} hrs`, { permanent: true, direction: 'top' }).addTo(map);
+
+            document.getElementById("mDist").textContent = `Distance: ${distanceKm} km`;
+            document.getElementById("mTime").textContent = `Time: ${timeHr} hrs`;
+            document.getElementById("mCost").textContent = `Cost: ₹${cost}`;
+            document.getElementById("mNote").textContent = type === "quantum" ? "Quantum route" : "Classical route";
+          }
+        } else throw new Error("No route found.");
+      } catch (err) { alert(err); }
+    }
+    document.getElementById('yr').textContent = new Date().getFullYear();
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>
